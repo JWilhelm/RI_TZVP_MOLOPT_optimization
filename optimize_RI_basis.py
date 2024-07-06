@@ -1,4 +1,5 @@
 import os
+import itertools
 
 # List of chemical elements with their atomic numbers, symbols, and spin multiplicities up to element 99
 elements = [
@@ -59,7 +60,23 @@ for atomic_number, symbol, spin_multiplicity in elements:
     os.chdir(directory_name)
     
     # Loop over the number of RI basis functions from 10 to 99
-    for ri_basis in range(10, 100, 5):
+    for ri_basis in range(10, 200, 5):
+
+        print("RI_BASIS = ", ri_basis)
+
+        # Generate all possible 7-tuples
+        for s in range(10):
+         for p in range(min(s+1,10)):
+          for d in range(min(p+1,8)):
+           for f in range(min(d+1,6)):
+            for g in range(min(f+1,4)):
+             for h in range(min(g+1,3)):
+              for i in range (min(h+1,2)):
+               n_tot = s + 3*p + 5*d + 7*f + 9*g + 11*h + 13*i
+               if n_tot > ri_basis:
+                 continue
+               print(s,p,d,f,g,h,i,ri_basis)
+
         subdirectory_name = f"RI_{ri_basis:02d}"
         if not os.path.exists(subdirectory_name):
             os.makedirs(subdirectory_name)
