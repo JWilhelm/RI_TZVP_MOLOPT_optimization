@@ -96,12 +96,14 @@ for atomic_number, symbol, spin_multiplicity in elements:
 
             if len(parts) == 5:  
                 angular_momentum = int(parts[2])
-                n_l[angular_momentum] = n_l[angular_momentum] + 1
             if len(parts) == 2:
                 exponent = float(parts[0])
                 if exponent > exp_min_init and exponent < exp_max_init:
+                   n_l[angular_momentum] = n_l[angular_momentum] + 1
                    exp_RI_def2_TZVP[angular_momentum][n_l[angular_momentum]-1] = exponent
-   
+  
+    print("s p ... RI-def2-TZVP: ",n_l[:])
+ 
     # Loop over the number of RI basis functions in the basis
     for N_RI in range(10, 150, 5):
 
@@ -115,15 +117,16 @@ for atomic_number, symbol, spin_multiplicity in elements:
         # Generate all possible 7-tuples
         for s in range(n_l[0]+1):
          for p in range(n_l[1]+1):
-          for d in range(n_l[2]+1):
-           for f in range(n_l[3]+1):
-            for g in range(n_l[4]+1):
-             for h in range(n_l[5]+1):
-              for i in range (n_l[6]+1):
+          for d in range(min(n_l[2]+1,p+1)):
+           for f in range(min(n_l[3]+1,d+1)):
+            for g in range(min(n_l[4]+1,f+1)):
+             for h in range(min(n_l[5]+1,g+1)):
+              for i in range(min(n_l[6]+1,h+1)):
                n_tot = s + 3*p + 5*d + 7*f + 9*g + 11*h + 13*i
+ 
                if n_tot != N_RI:
                  continue
-               print(s,p,d,f,g,h,i,N_RI)
+               print("check:",s,p,d,f,g,h,i,N_RI)
 
                for element_gth_potential in gth_potentials:
 
@@ -151,16 +154,14 @@ for atomic_number, symbol, spin_multiplicity in elements:
                  with open(tailored_input_file, 'w') as new_file:
                      new_file.write(content)
  
-                 print("you write that file")
- 
                  initial_RI_basis_file = os.path.join(subdirectory_path, 'INITIAL_RI_BASIS')  
                  with open(initial_RI_basis_file, 'w') as new_file:
-                   new_file.write("RI_initial")
-                   new_file.write(str(s+p+d+f+g+h+i))
+                   new_file.write(symbol+" RI_initial\n")
+                   new_file.write(str(s+p+d+f+g+h+i)+"\n")
                    for i_s in range(s):
-                      new_file.write("1 0 0 1 1")
-                      exp = exp_RI_def2_TZVP[0][n_l[0]-i_s]
-                      new_file.write(str(exp)+"  1.0")
+                      new_file.write("1 0 0 1 1\n")
+                      exp = exp_RI_def2_TZVP[0][n_l[0]-i_s-1]
+                      new_file.write(str(exp)+"  1.0\n")
 #                   for i_p in range(p):
 #                   for i_d in range(d):
 #                   for i_f in range(f):
