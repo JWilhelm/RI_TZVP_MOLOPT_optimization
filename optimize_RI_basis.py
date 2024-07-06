@@ -1,6 +1,9 @@
 import os
 import itertools
 
+exp_min_init = 0.15
+exp_max_init = 28.0
+
 # List of chemical elements with their atomic numbers, symbols, and spin multiplicities up to element 99
 elements = [
     (1, 'H', 2), (2, 'He', 1), (3, 'Li', 2), (4, 'Be', 1), (5, 'B', 2),
@@ -51,6 +54,10 @@ for line in lines:
 
 # Create directories for each element and navigate into each one
 for atomic_number, symbol, spin_multiplicity in elements:
+
+    if(atomic_number < 34 or atomic_number > 34):
+      continue
+
     directory_name = f"{atomic_number:02d}_{symbol}"
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
@@ -62,8 +69,9 @@ for atomic_number, symbol, spin_multiplicity in elements:
         lines = file_RI_def2_TZVP.readlines()
     
     # Initialize variables
-    l_quantnr_exp_RI_def2_TZVP = []
+    exp_RI_def2_TZVP = [[0 for _ in range(12)] for _ in range(12)]
     parsing = False
+    n_l = [0,0,0,0,0,0,0]
     
     # Iterate through each line in the file
     for line in lines:
@@ -88,48 +96,78 @@ for atomic_number, symbol, spin_multiplicity in elements:
 
             if len(parts) == 5:  
                 angular_momentum = int(parts[2])
+                n_l[angular_momentum] = n_l[angular_momentum] + 1
             if len(parts) == 2:
                 exponent = float(parts[0])
-                l_quantnr_exp_RI_def2_TZVP.append((angular_momentum, exponent))
+                if exponent > exp_min_init and exponent < exp_max_init:
+                   exp_RI_def2_TZVP[angular_momentum][n_l[angular_momentum]-1] = exponent
    
-    # Loop over the number of RI basis functions from 10 to 99
-    for ri_basis in range(10, 150, 5):
+    # Loop over the number of RI basis functions in the basis
+    for N_RI in range(10, 150, 5):
 
-        print("RI_BASIS = ", ri_basis)
-
-
-
-        # Generate all possible 7-tuples
-        for s in range(10):
-         for p in range(min(s+1,10)):
-          for d in range(min(p+1,8)):
-           for f in range(min(d+1,6)):
-            for g in range(min(f+1,4)):
-             for h in range(min(g+1,3)):
-              for i in range (min(h+1,2)):
-               n_tot = s + 3*p + 5*d + 7*f + 9*g + 11*h + 13*i
-               if n_tot > ri_basis:
-                 continue
-               print(s,p,d,f,g,h,i,ri_basis)
-
-        subdirectory_name = f"RI_{ri_basis:02d}"
+        if N_RI < 100:
+           subdirectory_name = f"RI_0{N_RI:02d}"
+        else:
+           subdirectory_name = f"RI_{N_RI:02d}"
         if not os.path.exists(subdirectory_name):
             os.makedirs(subdirectory_name)
-        
-        # Copy the RI_opt.inp file into the new subdirectory
-        subdirectory_path = os.path.join(os.getcwd(), subdirectory_name)
-        new_file_path = os.path.join(subdirectory_path, 'RI_opt.inp')
-        
-        with open(input_file, 'r') as template:
-            content = template.read()
-        
-        # Replace the placeholder with the actual spin multiplicity
-        content = content.replace("REPLACE_MULTIPLICITY", str(spin_multiplicity))
-        content = content.replace("REPLACE_ELEMENT", symbol)
-        
-        # Write the new content to the new file
-        with open(new_file_path, 'w') as new_file:
-            new_file.write(content)
+
+        # Generate all possible 7-tuples
+        for s in range(n_l[0]+1):
+         for p in range(n_l[1]+1):
+          for d in range(n_l[2]+1):
+           for f in range(n_l[3]+1):
+            for g in range(n_l[4]+1):
+             for h in range(n_l[5]+1):
+              for i in range (n_l[6]+1):
+               n_tot = s + 3*p + 5*d + 7*f + 9*g + 11*h + 13*i
+               if n_tot != N_RI:
+                 continue
+               print(s,p,d,f,g,h,i,N_RI)
+
+               for element_gth_potential in gth_potentials:
+
+                 if element_gth_potential[0] != symbol:
+                   continue
+
+                 subsubdir_name = element_gth_potential[1]+f"_{N_RI}_{s}_{p}_{d}_{f}_{g}_{h}_{i}"
+
+                 # Copy the RI_opt.inp file into the new subdirectory
+                 subdirectory_path = os.path.join(os.getcwd(), subdirectory_name+"/"+subsubdir_name)
+                 if not os.path.exists(subdirectory_path):
+                     os.makedirs(subdirectory_path)
+
+                 tailored_input_file = os.path.join(subdirectory_path, 'RI_opt.inp')
+                 
+                 with open(input_file, 'r') as template:
+                     content = template.read()
+
+                 # Replace the placeholder with the actual spin multiplicity
+                 content = content.replace("REPLACE_MULTIPLICITY", str(spin_multiplicity))
+                 content = content.replace("REPLACE_ELEMENT", symbol)
+                 content = content.replace("REPLACE_POTENTIAL", element_gth_potential[1])
+                 
+                 # Write the new content to the new file
+                 with open(tailored_input_file, 'w') as new_file:
+                     new_file.write(content)
+ 
+                 print("you write that file")
+ 
+                 initial_RI_basis_file = os.path.join(subdirectory_path, 'INITIAL_RI_BASIS')  
+                 with open(initial_RI_basis_file, 'w') as new_file:
+                   new_file.write("RI_initial")
+                   new_file.write(str(s+p+d+f+g+h+i))
+                   for i_s in range(s):
+                      new_file.write("1 0 0 1 1")
+                      exp = exp_RI_def2_TZVP[0][n_l[0]-i_s]
+                      new_file.write(str(exp)+"  1.0")
+#                   for i_p in range(p):
+#                   for i_d in range(d):
+#                   for i_f in range(f):
+#                   for i_g in range(g):
+#                   for i_h in range(h):
+#                   for i_i in range(i):
+  
     
     # Navigate back to the parent directory
     os.chdir('..')
