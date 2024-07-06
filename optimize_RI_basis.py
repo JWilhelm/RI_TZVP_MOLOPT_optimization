@@ -1,6 +1,11 @@
 import os
 import itertools
 
+def write_RI(new_file, exp_RI_def2_TZVP, n_l, l, i_l):
+   new_file.write("1 "+str(l)+" "+str(l)+" 1 1\n")
+   exp = exp_RI_def2_TZVP[l][n_l[l]-i_l-1]
+   new_file.write(str(exp)+"  1.0\n")
+
 exp_min_init = 0.15
 exp_max_init = 28.0
 
@@ -159,15 +164,19 @@ for atomic_number, symbol, spin_multiplicity in elements:
                    new_file.write(symbol+" RI_initial\n")
                    new_file.write(str(s+p+d+f+g+h+i)+"\n")
                    for i_s in range(s):
-                      new_file.write("1 0 0 1 1\n")
-                      exp = exp_RI_def2_TZVP[0][n_l[0]-i_s-1]
-                      new_file.write(str(exp)+"  1.0\n")
-#                   for i_p in range(p):
-#                   for i_d in range(d):
-#                   for i_f in range(f):
-#                   for i_g in range(g):
-#                   for i_h in range(h):
-#                   for i_i in range(i):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 0, i_s)
+                   for i_p in range(p):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 1, i_p)
+                   for i_d in range(d):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 2, i_d)
+                   for i_f in range(f):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 3, i_f)
+                   for i_g in range(g):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 4, i_g)
+                   for i_h in range(h):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 5, i_h)
+                   for i_i in range(i):
+                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 6, i_i)
   
     
     # Navigate back to the parent directory
