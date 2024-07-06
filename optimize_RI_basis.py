@@ -26,18 +26,15 @@ elements = [
 ]
 
 # Template for RI_opt.inp
-input_file = os.path.join(os.getcwd(), "RI_opt.inp")
+input_file        = os.path.join(os.getcwd(), "RI_opt.inp")
+RI_def2_TZVP_file = os.path.join(os.getcwd(), "BASIS_RI_def2-TZVPP-RIFIT")
+data_dir = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/"
 
-GTH_POTENTIAL_file    = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/GTH_POTENTIALS"
-molopt_basis_file     = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/BASIS_MOLOPT"
-molopt_ucl_basis_file = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/BASIS_MOLOPT_UCL"
+GTH_POTENTIAL_file    = data_dir+"GTH_POTENTIALS"
+molopt_basis_file     = data_dir+"BASIS_MOLOPT"
+molopt_ucl_basis_file = data_dir+"BASIS_MOLOPT_UCL"
 
-# Ensure the template file exists
-if not os.path.exists(input_file):
-    print(f"Template file '{input_file}' does not exist. Please create it first.")
-    exit(1)
-
-# get all GTH pseudos for each element
+####################### get all GTH pseudos for each element #########################################
 with open(GTH_POTENTIAL_file, 'r') as file:
     data = file.read()
 lines = data.splitlines()
@@ -58,11 +55,49 @@ for atomic_number, symbol, spin_multiplicity in elements:
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
     os.chdir(directory_name)
+
+    ####################### get RI-def2_TZVP basis set for the element ##############################
+    # Open and read the file
+    with open(RI_def2_TZVP_file, 'r') as file_RI_def2_TZVP:
+        lines = file_RI_def2_TZVP.readlines()
     
+    # Initialize variables
+    l_quantnr_exp_RI_def2_TZVP = []
+    parsing = False
+    
+    # Iterate through each line in the file
+    for line in lines:
+        line = line.strip()
+    
+        # Check for the start of the element's basis set
+        if line.startswith(symbol):
+            parsing = True
+            continue
+    
+        # Stop parsing when the next element is encountered
+        if parsing and line and line[0].isalpha() and not line.startswith(symbol):
+            break
+    
+        # Skip comments and empty lines
+        if line.startswith("#") or not line:
+            continue
+    
+        # Parse basis function lines
+        if parsing:
+            parts = line.split()
+
+            if len(parts) == 5:  
+                angular_momentum = int(parts[2])
+            if len(parts) == 2:
+                exponent = float(parts[0])
+                l_quantnr_exp_RI_def2_TZVP.append((angular_momentum, exponent))
+   
     # Loop over the number of RI basis functions from 10 to 99
-    for ri_basis in range(10, 200, 5):
+    for ri_basis in range(10, 150, 5):
 
         print("RI_BASIS = ", ri_basis)
+
+
 
         # Generate all possible 7-tuples
         for s in range(10):
