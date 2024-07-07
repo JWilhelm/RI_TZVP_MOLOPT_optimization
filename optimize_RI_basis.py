@@ -1,13 +1,7 @@
 import os
 import itertools
-
-def write_RI(new_file, exp_RI_def2_TZVP, n_l, l, i_l):
-   new_file.write("1 "+str(l)+" "+str(l)+" 1 1\n")
-   exp = exp_RI_def2_TZVP[l][n_l[l]-i_l-1]
-   new_file.write(str(exp)+"  1.0\n")
-
-exp_min_init = 0.15
-exp_max_init = 28.0
+import shutil
+import subprocess
 
 # List of chemical elements with their atomic numbers, symbols, and spin multiplicities up to element 99
 elements = [
@@ -35,9 +29,10 @@ elements = [
 
 # Template for RI_opt.inp
 input_file        = os.path.join(os.getcwd(), "RI_opt.inp")
-RI_def2_TZVP_file = os.path.join(os.getcwd(), "BASIS_RI_def2-TZVPP-RIFIT")
-data_dir = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/"
+runscript         = os.path.join(os.getcwd(), "run_noctua.sh")
+restart           = os.path.join(os.getcwd(), "optRI-RESTART.wfn")
 
+data_dir = "/pc2/groups/hpc-prf-metdyn/eprop2d1_Jan/02_compile_CP2K/50_Hedin_shift/cp2k/data/"
 GTH_POTENTIAL_file    = data_dir+"GTH_POTENTIALS"
 molopt_basis_file     = data_dir+"BASIS_MOLOPT"
 molopt_ucl_basis_file = data_dir+"BASIS_MOLOPT_UCL"
@@ -68,49 +63,8 @@ for atomic_number, symbol, spin_multiplicity in elements:
         os.makedirs(directory_name)
     os.chdir(directory_name)
 
-    ####################### get RI-def2_TZVP basis set for the element ##############################
-    # Open and read the file
-    with open(RI_def2_TZVP_file, 'r') as file_RI_def2_TZVP:
-        lines = file_RI_def2_TZVP.readlines()
-    
-    # Initialize variables
-    exp_RI_def2_TZVP = [[0 for _ in range(12)] for _ in range(12)]
-    parsing = False
-    n_l = [0,0,0,0,0,0,0]
-    
-    # Iterate through each line in the file
-    for line in lines:
-        line = line.strip()
-    
-        # Check for the start of the element's basis set
-        if line.startswith(symbol):
-            parsing = True
-            continue
-    
-        # Stop parsing when the next element is encountered
-        if parsing and line and line[0].isalpha() and not line.startswith(symbol):
-            break
-    
-        # Skip comments and empty lines
-        if line.startswith("#") or not line:
-            continue
-    
-        # Parse basis function lines
-        if parsing:
-            parts = line.split()
-
-            if len(parts) == 5:  
-                angular_momentum = int(parts[2])
-            if len(parts) == 2:
-                exponent = float(parts[0])
-                if exponent > exp_min_init and exponent < exp_max_init:
-                   n_l[angular_momentum] = n_l[angular_momentum] + 1
-                   exp_RI_def2_TZVP[angular_momentum][n_l[angular_momentum]-1] = exponent
-  
-    print("s p ... RI-def2-TZVP: ",n_l[:])
- 
     # Loop over the number of RI basis functions in the basis
-    for N_RI in range(10, 150, 5):
+    for N_RI in range(10, 80, 1):
 
         if N_RI < 100:
            subdirectory_name = f"RI_0{N_RI:02d}"
@@ -120,18 +74,18 @@ for atomic_number, symbol, spin_multiplicity in elements:
             os.makedirs(subdirectory_name)
 
         # Generate all possible 7-tuples
-        for s in range(n_l[0]+1):
-         for p in range(n_l[1]+1):
-          for d in range(min(n_l[2]+1,p+1)):
-           for f in range(min(n_l[3]+1,d+1)):
-            for g in range(min(n_l[4]+1,f+1)):
-             for h in range(min(n_l[5]+1,g+1)):
-              for i in range(min(n_l[6]+1,h+1)):
+        for s in range(8):
+         for p in range(s+2):
+          for d in range(p+1):
+           for f in range(d+1):
+            for g in range(f+1):
+             for h in range(g+1):
+              for i in range(h+1):
                n_tot = s + 3*p + 5*d + 7*f + 9*g + 11*h + 13*i
  
                if n_tot != N_RI:
                  continue
-               print("check:",s,p,d,f,g,h,i,N_RI)
+               print("RI basis:",s,p,d,f,g,h,i,N_RI)
 
                for element_gth_potential in gth_potentials:
 
@@ -144,6 +98,7 @@ for atomic_number, symbol, spin_multiplicity in elements:
                  subdirectory_path = os.path.join(os.getcwd(), subdirectory_name+"/"+subsubdir_name)
                  if not os.path.exists(subdirectory_path):
                      os.makedirs(subdirectory_path)
+                 os.chdir(subdirectory_path)
 
                  tailored_input_file = os.path.join(subdirectory_path, 'RI_opt.inp')
                  
@@ -154,30 +109,21 @@ for atomic_number, symbol, spin_multiplicity in elements:
                  content = content.replace("REPLACE_MULTIPLICITY", str(spin_multiplicity))
                  content = content.replace("REPLACE_ELEMENT", symbol)
                  content = content.replace("REPLACE_POTENTIAL", element_gth_potential[1])
-                 
+                 content = content.replace("REPLACE_NUM_FUNC", f"{s} {p} {d} {f} {g} {h} {i}")
+ 
                  # Write the new content to the new file
                  with open(tailored_input_file, 'w') as new_file:
                      new_file.write(content)
  
-                 initial_RI_basis_file = os.path.join(subdirectory_path, 'INITIAL_RI_BASIS')  
-                 with open(initial_RI_basis_file, 'w') as new_file:
-                   new_file.write(symbol+" RI_initial\n")
-                   new_file.write(str(s+p+d+f+g+h+i)+"\n")
-                   for i_s in range(s):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 0, i_s)
-                   for i_p in range(p):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 1, i_p)
-                   for i_d in range(d):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 2, i_d)
-                   for i_f in range(f):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 3, i_f)
-                   for i_g in range(g):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 4, i_g)
-                   for i_h in range(h):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 5, i_h)
-                   for i_i in range(i):
-                      write_RI(new_file, exp_RI_def2_TZVP, n_l, 6, i_i)
-  
-    
+                 run_in_dir = os.path.join(subdirectory_path,"run.sh")
+                 shutil.copy(runscript, run_in_dir)
+
+                 restart_in_dir = os.path.join(subdirectory_path,"optRI-RESTART.wfn")
+                 shutil.copy(restart, restart_in_dir)
+
+                 subprocess.run(["sbatch", "run.sh"])
+   
+               os.chdir('../..')
+ 
     # Navigate back to the parent directory
     os.chdir('..')
